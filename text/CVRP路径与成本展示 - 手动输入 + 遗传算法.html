@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>CVRP路径与成本展示 - 手动输入 + 遗传算法</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .left-panel, .right-panel {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .panel-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #2196f3;
+            color: #2196f3;
+        }
+        #canvas-left, #canvas-right {
+            border: 1px solid #333;
+            background: #fafafa;
+            margin: 10px 0;
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #f8f9fa;
+        }
+        
+        .canvas-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            gap: 5px;
+            z-index: 10;
+        }
+        
+        .canvas-control-btn {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .canvas-control-btn:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .canvas-control-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .canvas-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: #666;
+            border: 1px solid #ddd;
+        }
+        #inputArea {
+            margin-bottom: 15px;
+        }
+        #cost-left, #cost-right {
+            font-weight: bold;
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f8ff;
+            border-radius: 4px;
+        }
+        table {
+            border-collapse: collapse;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #aaa;
+            padding: 6px 10px;
+            text-align: center;
+        }
+        .over-capacity {
+            background: #ffcccc;
+        }
+        .customer-grid {
+            display: flex;
+            gap: 4px;
+            margin: 4px 0;
+            flex-wrap: wrap;
+        }
+        .customer-cell {
+            width: 28px;
+            height: 28px;
+            border: 1px solid #888;
+            text-align: center;
+            font-size: 14px;
+            line-height: 28px;
+            background: #fff;
+            outline: none;
+            border-radius: 4px;
+            transition: border 0.2s;
+        }
+        .customer-cell:focus {
+            border: 2px solid #2196f3;
+        }
+        .cell-invalid {
+            background: #ffeaea;
+            border-color: #e91e63;
+        }
+        .ga-controls {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        .ga-controls label {
+            margin-right: 10px;
+            font-weight: bold;
+        }
+        .ga-controls input, .ga-controls select {
+            margin-right: 15px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .ga-controls button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .ga-controls button:hover {
+            background: #45a049;
+        }
+        .ga-controls button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        .import-button {
+            background: #ff9800 !important;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background-color 0.3s;
+        }
+        
+        .import-button:hover:not(:disabled) {
+            background: #f57c00 !important;
+        }
+        
+        .import-button:disabled {
+            background: #cccccc !important;
+            cursor: not-allowed;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #4caf50;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .stat-item {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; color: #1976d2; margin-bottom: 30px;">带容量约束的车辆路径问题（CVRP）求解器</h1>
+    
+    <div class="container">
+        <!-- 左侧面板：手动输入 -->
+        <div class="left-panel">
+            <div class="panel-title">📝 手动输入求解</div>
+            <div id="inputArea">
+                <label for="vehicleNum">请输入车辆数量：</label>
+                <input type="number" id="vehicleNum" min="1" max="15" value="3" style="width:50px;">
+                <button onclick="generateTable()">生成车辆客户分配表</button>
+                <div id="capacityInfo" style="margin:8px 0;"></div>
+                <form id="routeForm" onsubmit="event.preventDefault(); drawCVRP();">
+                    <div id="vehicleTableArea"></div>
+                    <button type="submit" id="showBtn" style="display:none;">展示路径与成本</button>
+                </form>
+            </div>
+            <div class="canvas-container">
+                <canvas id="canvas-left" width="500" height="400"></canvas>
+                <div class="canvas-controls">
+                    <button class="canvas-control-btn" onclick="zoomIn('left')" title="放大">🔍+</button>
+                    <button class="canvas-control-btn" onclick="zoomOut('left')" title="缩小">🔍-</button>
+                    <button class="canvas-control-btn" onclick="resetZoom('left')" title="重置缩放">🔄</button>
+                </div>
+                <div class="canvas-info" id="canvas-info-left">缩放: 100% | 拖拽查看</div>
+            </div>
+            <div id="cost-left"></div>
+        </div>
+
+        <!-- 右侧面板：遗传算法 -->
+        <div class="right-panel">
+            <div class="panel-title">🧬 遗传算法求解</div>
+            <div class="ga-controls">
+                <label for="gaVehicleNum">车辆数量:</label>
+                <input type="number" id="gaVehicleNum" min="1" max="15" value="3" style="width:50px;">
+                
+                <label for="populationSize">种群大小:</label>
+                <input type="number" id="populationSize" min="20" max="200" value="50" style="width:50px;">
+                
+                <label for="generations">迭代代数:</label>
+                <input type="number" id="generations" min="10" max="500" value="100" style="width:50px;">
+                
+                <label for="mutationRate">变异率:</label>
+                <select id="mutationRate">
+                    <option value="0.01">0.01</option>
+                    <option value="0.05" selected>0.05</option>
+                    <option value="0.1">0.1</option>
+                    <option value="0.15">0.15</option>
+                </select>
+                
+                <label for="maxRunTime">最大运行时间(秒):</label>
+                <input type="number" id="maxRunTime" min="10" max="120" value="30" style="width:50px;">
+                
+                <br><br>
+                <button onclick="runGeneticAlgorithm()" id="runGA">运行遗传算法</button>
+                <button onclick="stopGeneticAlgorithm()" id="stopGA" disabled>停止</button>
+                <button onclick="resetGA()">重置</button>
+                <button onclick="importGASolution()" id="importBtn" disabled class="import-button">📋 导入到左侧</button>
+                <button onclick="testGeneticAlgorithm()" style="background: #ff5722; margin-left: 10px;">🧪 测试算法</button>
+            </div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <!-- 遗传算法路径显示区域 -->
+            <div id="gaRoutesDisplay" style="margin: 15px 0; display: none;">
+                <h4 style="margin: 5px 0; color: #1976d2; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">🧬 当前最佳路径:</h4>
+                <div id="gaRoutesInfo" style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 12px; max-height: 200px; overflow-y: auto;"></div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="currentGen">0</div>
+                    <div class="stat-label">当前代数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="bestCost">-</div>
+                    <div class="stat-label">最佳成本</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="avgCost">-</div>
+                    <div class="stat-label">平均成本</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="timeElapsed">0s</div>
+                    <div class="stat-label">运行时间</div>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="canvas-right" width="500" height="400"></canvas>
+                <div class="canvas-controls">
+                    <button class="canvas-control-btn" onclick="zoomIn('right')" title="放大">🔍+</button>
+                    <button class="canvas-control-btn" onclick="zoomOut('right')" title="缩小">🔍-</button>
+                    <button class="canvas-control-btn" onclick="resetZoom('right')" title="重置缩放">🔄</button>
+                </div>
+                <div class="canvas-info" id="canvas-info-right">缩放: 100% | 拖拽查看</div>
+            </div>
+            <div id="cost-right"></div>
+        </div>
+    </div>
+
+    <script>
+        // 内置客户点数据（包括仓库和30个客户点）
+        // 假设0号点为仓库
+        // 每个客户有需求 demand
+        const customers = [
+            {id: 0, x: 250, y: 200, name: "仓库", demand: 0},
+            {id: 1, x: 100, y: 100, name: "客户1", demand: 8},
+            {id: 2, x: 150, y: 80,  name: "客户2", demand: 12},
+            {id: 3, x: 200, y: 60,  name: "客户3", demand: 15},
+            {id: 4, x: 300, y: 50,  name: "客户4", demand: 10},
+            {id: 5, x: 400, y: 70,  name: "客户5", demand: 18},
+            {id: 6, x: 450, y: 100, name: "客户6", demand: 14},
+            {id: 7, x: 500, y: 150, name: "客户7", demand: 16},
+            {id: 8, x: 480, y: 200, name: "客户8", demand: 11},
+            {id: 9, x: 420, y: 250, name: "客户9", demand: 13},
+            {id: 10, x: 350, y: 280, name: "客户10", demand: 9},
+            {id: 11, x: 280, y: 300, name: "客户11", demand: 17},
+            {id: 12, x: 200, y: 320, name: "客户12", demand: 12},
+            {id: 13, x: 150, y: 300, name: "客户13", demand: 14},
+            {id: 14, x: 100, y: 280, name: "客户14", demand: 10},
+            {id: 15, x: 80, y: 250, name: "客户15", demand: 16},
+            {id: 16, x: 90, y: 200, name: "客户16", demand: 11},
+            {id: 17, x: 120, y: 180, name: "客户17", demand: 13},
+            {id: 18, x: 180, y: 160, name: "客户18", demand: 15},
+            {id: 19, x: 220, y: 140, name: "客户19", demand: 9},
+            {id: 20, x: 320, y: 120, name: "客户20", demand: 12},
+            {id: 21, x: 380, y: 140, name: "客户21", demand: 14},
+            {id: 22, x: 440, y: 180, name: "客户22", demand: 16},
+            {id: 23, x: 460, y: 220, name: "客户23", demand: 11},
+            {id: 24, x: 400, y: 240, name: "客户24", demand: 13},
+            {id: 25, x: 320, y: 260, name: "客户25", demand: 15},
+            {id: 26, x: 240, y: 280, name: "客户26", demand: 10},
+            {id: 27, x: 180, y: 260, name: "客户27", demand: 12},
+            {id: 28, x: 140, y: 240, name: "客户28", demand: 14},
+            {id: 29, x: 110, y: 220, name: "客户29", demand: 16},
+            {id: 30, x: 130, y: 160, name: "客户30", demand: 11}
+        ];
+
+        // 车辆容量
+        const vehicleCapacity = 50;
+
+        // 画布缩放和拖拽相关变量
+        const canvasStates = {
+            left: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, lastX: 0, lastY: 0 },
+            right: { scale: 1, offsetX: 0, offsetY: 0, isDragging: false, lastX: 0, lastY: 0 }
+        };
+
+        // 遗传算法相关变量
+        let gaRunning = false;
+        let gaInterval = null;
+        let startTime = 0;
+        let currentGeneration = 0;
+        let bestSolution = null;
+        let bestCost = Infinity;
+        let population = [];
+        let populationSize = 50;
+        let generations = 100;
+        let mutationRate = 0.05;
+        let maxRunTime = 30000; // 最大运行时间30秒
+
+        function getCustomerById(id) {
+            return customers.find(c => c.id === id);
+        }
+
+        function distance(a, b) {
+            return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+        }
+
+        // 画布缩放和拖拽功能
+        function zoomIn(canvasId) {
+            const state = canvasStates[canvasId];
+            state.scale = Math.min(state.scale * 1.2, 5); // 最大放大5倍
+            updateCanvasTransform(canvasId);
+        }
+
+        function zoomOut(canvasId) {
+            const state = canvasStates[canvasId];
+            state.scale = Math.max(state.scale / 1.2, 0.2); // 最小缩小到0.2倍
+            updateCanvasTransform(canvasId);
+        }
+
+        function resetZoom(canvasId) {
+            const state = canvasStates[canvasId];
+            state.scale = 1;
+            state.offsetX = 0;
+            state.offsetY = 0;
+            updateCanvasTransform(canvasId);
+        }
+
+        function updateCanvasTransform(canvasId) {
+            const state = canvasStates[canvasId];
+            const canvas = document.getElementById(`canvas-${canvasId}`);
+            const ctx = canvas.getContext('2d');
+            
+            // 更新画布变换
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换
+            ctx.translate(state.offsetX, state.offsetY);
+            ctx.scale(state.scale, state.scale);
+            
+            // 更新信息显示
+            const infoElement = document.getElementById(`canvas-info-${canvasId}`);
+            infoElement.textContent = `缩放: ${Math.round(state.scale * 100)}% | 拖拽查看`;
+            
+            // 重新绘制
+            if (canvasId === 'left') {
+                drawCVRP();
+            } else if (canvasId === 'right' && bestSolution) {
+                drawGASolution(bestSolution);
+            }
+        }
+
+        function setupCanvasInteraction(canvasId) {
+            const canvas = document.getElementById(`canvas-${canvasId}`);
+            const state = canvasStates[canvasId];
+            
+            // 鼠标滚轮缩放
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                
+                // 计算缩放中心
+                const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.max(0.2, Math.min(5, state.scale * scaleFactor));
+                
+                if (newScale !== state.scale) {
+                    // 调整偏移以保持鼠标位置不变
+                    state.offsetX = mouseX - (mouseX - state.offsetX) * (newScale / state.scale);
+                    state.offsetY = mouseY - (mouseY - state.offsetY) * (newScale / state.scale);
+                    state.scale = newScale;
+                    updateCanvasTransform(canvasId);
+                }
+            });
+            
+            // 鼠标拖拽
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 0) { // 左键
+                    state.isDragging = true;
+                    state.lastX = e.clientX;
+                    state.lastY = e.clientY;
+                    canvas.style.cursor = 'grabbing';
+                }
+            });
+            
+            canvas.addEventListener('mousemove', (e) => {
+                if (state.isDragging) {
+                    const deltaX = e.clientX - state.lastX;
+                    const deltaY = e.clientY - state.lastY;
+                    
+                    state.offsetX += deltaX;
+                    state.offsetY += deltaY;
+                    
+                    state.lastX = e.clientX;
+                    state.lastY = e.clientY;
+                    
+                    updateCanvasTransform(canvasId);
+                }
+            });
+            
+            canvas.addEventListener('mouseup', (e) => {
+                if (e.button === 0) {
+                    state.isDragging = false;
+                    canvas.style.cursor = 'grab';
+                }
+            });
+            
+            canvas.addEventListener('mouseleave', () => {
+                state.isDragging = false;
+                canvas.style.cursor = 'grab';
+            });
+            
+            // 设置初始光标样式
+            canvas.style.cursor = 'grab';
+        }
+
+        // 记录每辆车当前方格数量
+        let vehicleCellCounts = {};
+
+        // 生成每辆车的客户输入方格
+        function generateCustomerGrid(vehicleIdx, cellCount = 10) {
+            let html = `<div class="customer-grid" id="customerGrid${vehicleIdx}">`;
+            for (let i = 0; i < cellCount; i++) {
+                html += `<input type="text" maxlength="2" class="customer-cell" id="cell_${vehicleIdx}_${i}" 
+                    oninput="onCellInput(${vehicleIdx}, ${i})" 
+                    onkeydown="onCellKeyDown(event, ${vehicleIdx}, ${i})"
+                    autocomplete="off"
+                >`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function generateTable() {
+            const vehicleNum = parseInt(document.getElementById('vehicleNum').value);
+            if (isNaN(vehicleNum) || vehicleNum < 1) {
+                alert("请输入有效的车辆数量！");
+                return;
+            }
+            
+            // 展示容量信息和客户需求表格
+            let capacityHtml = `<div style="margin: 15px 0;">
+                <div style="margin-bottom: 10px; font-weight: bold; color: #1976d2;">
+                    每辆车容量限制：<span style="color: #f44336; font-size: 16px;">${vehicleCapacity}</span>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <h4 style="margin: 5px 0; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 5px;">
+                        📊 客户需求表
+                    </h4>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+                        <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                            <thead style="background: #f5f5f5; position: sticky; top: 0;">
+                                <tr>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e3f2fd;">客户编号</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e3f2fd;">需求数量</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e3f2fd;">客户编号</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e3f2fd;">需求数量</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e3f2fd;">客户编号</th>
+                                    <th style="border: 1px solid #ddd; padding: 8px; text-align: center; background: #e3f2fd;">需求数量</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
+            
+            // 将客户分成3列显示
+            const customerRows = Math.ceil((customers.length - 1) / 3); // 减去仓库
+            for (let row = 0; row < customerRows; row++) {
+                capacityHtml += '<tr>';
+                for (let col = 0; col < 3; col++) {
+                    const customerIndex = row + col * customerRows + 1;
+                    if (customerIndex < customers.length) {
+                        const customer = customers[customerIndex];
+                        const demandClass = customer.demand > vehicleCapacity / 2 ? 'high-demand' : 'normal-demand';
+                        capacityHtml += `
+                            <td style="border: 1px solid #ddd; padding: 6px; text-align: center; font-weight: bold; color: #1976d2;">
+                                ${customer.id}
+                            </td>
+                            <td style="border: 1px solid #ddd; padding: 6px; text-align: center; background: ${customer.demand > vehicleCapacity / 2 ? '#fff3e0' : '#f1f8e9'};">
+                                <span class="${demandClass}" style="font-weight: bold; color: ${customer.demand > vehicleCapacity / 2 ? '#f57c00' : '#388e3c'};">
+                                    ${customer.demand}
+                                </span>
+                            </td>`;
+                    } else {
+                        capacityHtml += '<td style="border: 1px solid #ddd; padding: 6px;"></td><td style="border: 1px solid #ddd; padding: 6px;"></td>';
+                    }
+                }
+                capacityHtml += '</tr>';
+            }
+            
+            capacityHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top: 8px; font-size: 11px; color: #666;">
+                        💡 提示：需求数量超过容量一半的客户用橙色标注，建议合理分配
+                    </div>
+                </div>
+            </div>`;
+            
+            document.getElementById('capacityInfo').innerHTML = capacityHtml;
+
+            // 初始化每辆车的方格数量
+            vehicleCellCounts = {};
+            let html = '<table><tr><th>车辆编号</th><th>服务客户编号（每格填一个编号）</th><th>本车总需求</th></tr>';
+            for (let i = 0; i < vehicleNum; i++) {
+                vehicleCellCounts[i] = 10;
+                html += `<tr>
+                    <td>车辆${i+1}</td>
+                    <td>${generateCustomerGrid(i, vehicleCellCounts[i])}</td>
+                    <td id="demand${i}">0</td>
+                </tr>`;
+            }
+            html += '</table>';
+            document.getElementById('vehicleTableArea').innerHTML = html;
+            document.getElementById('showBtn').style.display = 'inline-block';
+
+            // 绑定输入事件，实时计算需求
+            for (let i = 0; i < vehicleNum; i++) {
+                updateDemand(i);
+            }
+        }
+
+        // 输入时自动跳转到下一个格子，并动态增加方格
+        function onCellInput(vehicleIdx, cellIdx) {
+            // 只允许输入1-30的数字
+            const cell = document.getElementById(`cell_${vehicleIdx}_${cellIdx}`);
+            let val = cell.value.replace(/[^0-9]/g, '');
+            if (val.length > 2) val = val.substring(0, 2);
+            cell.value = val;
+            // 检查有效性
+            if (val !== "" && (parseInt(val) === 0 || !getCustomerById(parseInt(val)) || parseInt(val) === 0)) {
+                cell.classList.add('cell-invalid');
+            } else {
+                cell.classList.remove('cell-invalid');
+            }
+            // 跳到下一个格子
+            if (val !== "") {
+                // 如果是最后一个格子且被填上，动态增加一个格子
+                if (cellIdx === vehicleCellCounts[vehicleIdx] - 1) {
+                    // 增加一个格子
+                    vehicleCellCounts[vehicleIdx]++;
+                    const gridDiv = document.getElementById(`customerGrid${vehicleIdx}`);
+                    const newInput = document.createElement('input');
+                    newInput.type = "text";
+                    newInput.maxLength = 2;
+                    newInput.className = "customer-cell";
+                    newInput.id = `cell_${vehicleIdx}_${cellIdx+1}`;
+                    newInput.setAttribute("oninput", `onCellInput(${vehicleIdx}, ${cellIdx+1})`);
+                    newInput.setAttribute("onkeydown", `onCellKeyDown(event, ${vehicleIdx}, ${cellIdx+1})`);
+                    newInput.setAttribute("autocomplete", "off");
+                    gridDiv.appendChild(newInput);
+                }
+                // 跳到下一个格子
+                const nextCell = document.getElementById(`cell_${vehicleIdx}_${cellIdx+1}`);
+                if (nextCell) nextCell.focus();
+            }
+            updateDemand(vehicleIdx);
+        }
+
+        // 支持用退格键回到上一个格子
+        function onCellKeyDown(e, vehicleIdx, cellIdx) {
+            const cell = document.getElementById(`cell_${vehicleIdx}_${cellIdx}`);
+            if (e.key === "Backspace" && cell.value === "" && cellIdx > 0) {
+                document.getElementById(`cell_${vehicleIdx}_${cellIdx-1}`).focus();
+            }
+        }
+
+        // 获取每辆车的客户编号数组
+        function getVehicleRoute(vehicleIdx) {
+            let ids = [];
+            const count = vehicleCellCounts[vehicleIdx] || 10;
+            for (let i = 0; i < count; i++) {
+                let cell = document.getElementById(`cell_${vehicleIdx}_${i}`);
+                if (!cell) continue;
+                let val = cell.value.trim();
+                if (val !== "") {
+                    let id = parseInt(val);
+                    if (!isNaN(id)) ids.push(id);
+                }
+            }
+            return ids;
+        }
+
+        function updateDemand(idx) {
+            const ids = getVehicleRoute(idx);
+            let sum = 0;
+            for (let id of ids) {
+                const c = getCustomerById(id);
+                if (c && c.id !== 0) sum += c.demand;
+            }
+            const td = document.getElementById(`demand${idx}`);
+            td.innerText = sum;
+            if (sum > vehicleCapacity) {
+                td.classList.add('over-capacity');
+            } else {
+                td.classList.remove('over-capacity');
+            }
+        }
+
+        function drawCVRP() {
+            const vehicleNum = parseInt(document.getElementById('vehicleNum').value);
+            let allAssigned = [];
+            let routes = [];
+            let overCapacity = false;
+            for (let i = 0; i < vehicleNum; i++) {
+                const ids = getVehicleRoute(i);
+                // 检查客户点编号有效性
+                for (let id of ids) {
+                    if (!getCustomerById(id) || id === 0) {
+                        alert(`车辆${i+1}的客户编号有误，或包含仓库编号0，请重新输入！`);
+                        return;
+                    }
+                }
+                // 检查重复分配
+                for (let id of ids) {
+                    if (allAssigned.includes(id)) {
+                        alert(`客户点${id}被多辆车分配，请检查！`);
+                        return;
+                    }
+                    allAssigned.push(id);
+                }
+                // 检查容量
+                let sum = 0;
+                for (let id of ids) {
+                    const c = getCustomerById(id);
+                    if (c) sum += c.demand;
+                }
+                if (sum > vehicleCapacity) {
+                    overCapacity = true;
+                }
+                routes.push(ids);
+            }
+            // 检查是否有客户未分配
+            const allCustomerIds = customers.filter(c => c.id !== 0).map(c => c.id);
+            for (let id of allCustomerIds) {
+                if (!allAssigned.includes(id)) {
+                    alert(`客户点${id}未被分配，请检查！`);
+                    return;
+                }
+            }
+
+            // 绘制
+            const canvas = document.getElementById('canvas-left');
+            const ctx = canvas.getContext('2d');
+            
+            // 应用缩放和拖拽变换
+            const state = canvasStates.left;
+            ctx.setTransform(1, 0, 0, 1, 0, 0); // 重置变换
+            ctx.translate(state.offsetX, state.offsetY);
+            ctx.scale(state.scale, state.scale);
+            
+            ctx.clearRect(-state.offsetX/state.scale, -state.offsetY/state.scale, canvas.width/state.scale, canvas.height/state.scale);
+
+            // 画点
+            for (let c of customers) {
+                ctx.beginPath();
+                ctx.arc(c.x/1.2, c.y/1.2, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = c.id === 0 ? "#ff6600" : "#3399ff";
+                ctx.fill();
+                ctx.strokeStyle = "#333";
+                ctx.stroke();
+                ctx.font = "12px Arial";
+                ctx.fillStyle = "#000";
+                ctx.fillText(`${c.id}`, c.x/1.2 + 10, c.y/1.2 + 4);
+            }
+
+            // 画路径（每辆车一种颜色）
+            const colors = ["#e91e63", "#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#009688", "#795548", "#607d8b", "#f44336", "#3f51b5"];
+            let totalCost = 0;
+            for (let i = 0; i < routes.length; i++) {
+                const route = routes[i];
+                if (route.length === 0) continue;
+                ctx.strokeStyle = colors[i % colors.length];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                // 仓库出发
+                let start = getCustomerById(0);
+                ctx.moveTo(start.x/1.2, start.y/1.2);
+                for (let id of route) {
+                    let c = getCustomerById(id);
+                    ctx.lineTo(c.x/1.2, c.y/1.2);
+                }
+                // 回到仓库
+                ctx.lineTo(start.x/1.2, start.y/1.2);
+                ctx.stroke();
+
+                // 计算成本
+                let cost = 0;
+                let prev = getCustomerById(0);
+                for (let id of route) {
+                    let c = getCustomerById(id);
+                    cost += distance(prev, c);
+                    prev = c;
+                }
+                cost += distance(prev, getCustomerById(0));
+                totalCost += cost;
+
+                // 在路径中间标注车辆编号
+                if (route.length > 0) {
+                    let midIdx = Math.floor(route.length / 2);
+                    let midC = getCustomerById(route[midIdx]);
+                    ctx.font = "bold 14px Arial";
+                    ctx.fillStyle = colors[i % colors.length];
+                    ctx.fillText(`车辆${i+1}`, midC.x/1.2 + 15, midC.y/1.2 - 10);
+                }
+            }
+
+            // 显示成本
+            let costMsg = `总路径成本：${totalCost.toFixed(2)}`;
+            if (overCapacity) {
+                costMsg += "（有车辆超出容量限制，请调整！）";
+            }
+            document.getElementById('cost-left').innerText = costMsg;
+        }
+
+        // ========== 遗传算法部分 ==========
+        
+        // 生成随机解
+        function generateRandomSolution(vehicleNum) {
+            const customerIds = customers.filter(c => c.id !== 0).map(c => c.id);
+            const shuffled = [...customerIds].sort(() => Math.random() - 0.5);
+            
+            // 创建车辆数组
+            const solution = Array(vehicleNum).fill().map(() => []);
+            
+            // 按容量约束分配客户，但允许超出容量
+            for (let customerId of shuffled) {
+                const customer = getCustomerById(customerId);
+                let assigned = false;
+                
+                // 尝试找到容量足够的车辆
+                for (let attempt = 0; attempt < vehicleNum; attempt++) {
+                    const targetVehicle = attempt;
+                    const currentDemand = solution[targetVehicle].reduce((sum, id) => sum + getCustomerById(id).demand, 0);
+                    
+                    if (currentDemand + customer.demand <= vehicleCapacity) {
+                        solution[targetVehicle].push(customerId);
+                        assigned = true;
+                        break;
+                    }
+                }
+                
+                // 如果所有车辆都容量不足，分配给第一个车辆（允许超出容量）
+                if (!assigned) {
+                    solution[0].push(customerId);
+                }
+            }
+            
+            return solution;
+        }
+
+        // 计算解的成本
+        function calculateSolutionCost(solution) {
+            let totalCost = 0;
+            for (let route of solution) {
+                if (route.length === 0) continue;
+                
+                let cost = 0;
+                let prev = getCustomerById(0); // 仓库
+                for (let customerId of route) {
+                    let customer = getCustomerById(customerId);
+                    cost += distance(prev, customer);
+                    prev = customer;
+                }
+                cost += distance(prev, getCustomerById(0)); // 回到仓库
+                totalCost += cost;
+            }
+            return totalCost;
+        }
+
+        // 检查解的可行性（放宽约束）
+        function isSolutionValid(solution) {
+            // 检查是否所有客户都被分配
+            const assignedCustomers = new Set();
+            for (let route of solution) {
+                for (let customerId of route) {
+                    assignedCustomers.add(customerId);
+                }
+            }
+            
+            const allCustomerIds = customers.filter(c => c.id !== 0).map(c => c.id);
+            const allAssigned = allCustomerIds.every(id => assignedCustomers.has(id));
+            
+            if (!allAssigned) {
+                return false;
+            }
+            
+            // 容量约束检查（允许超出，但记录惩罚）
+            let totalPenalty = 0;
+            for (let route of solution) {
+                let totalDemand = 0;
+                for (let customerId of route) {
+                    totalDemand += getCustomerById(customerId).demand;
+                }
+                if (totalDemand > vehicleCapacity) {
+                    totalPenalty += (totalDemand - vehicleCapacity) * 10; // 容量超出惩罚
+                }
+            }
+            
+            // 即使有容量超出，也认为是"有效"的，但成本会更高
+            return true;
+        }
+
+        // 交叉操作
+        function crossover(parent1, parent2) {
+            const child = Array(parent1.length).fill().map(() => []);
+            const usedCustomers = new Set();
+            
+            // 从父代1复制部分路径
+            for (let i = 0; i < parent1.length; i++) {
+                if (Math.random() < 0.6 && parent1[i].length > 0) {
+                    child[i] = [...parent1[i]];
+                    parent1[i].forEach(id => usedCustomers.add(id));
+                }
+            }
+            
+            // 从父代2中补充未使用的客户
+            for (let route of parent2) {
+                for (let customerId of route) {
+                    if (!usedCustomers.has(customerId)) {
+                        // 找到容量最少的车辆
+                        let minDemand = Infinity;
+                        let targetVehicle = 0;
+                        
+                        for (let i = 0; i < child.length; i++) {
+                            const currentDemand = child[i].reduce((sum, id) => sum + getCustomerById(id).demand, 0);
+                            if (currentDemand < minDemand) {
+                                minDemand = currentDemand;
+                                targetVehicle = i;
+                            }
+                        }
+                        
+                        child[targetVehicle].push(customerId);
+                        usedCustomers.add(customerId);
+                    }
+                }
+            }
+            
+            return child;
+        }
+
+        // 变异操作
+        function mutate(solution) {
+            const mutated = solution.map(route => [...route]);
+            
+            for (let i = 0; i < mutated.length; i++) {
+                if (Math.random() < mutationRate && mutated[i].length > 0) {
+                    // 随机交换两个客户
+                    if (mutated[i].length > 1) {
+                        const idx1 = Math.floor(Math.random() * mutated[i].length);
+                        const idx2 = Math.floor(Math.random() * mutated[i].length);
+                        if (idx1 !== idx2) {
+                            [mutated[i][idx1], mutated[i][idx2]] = [mutated[i][idx2], mutated[i][idx1]];
+                        }
+                    }
+                    
+                    // 随机将客户移动到其他车辆
+                    if (Math.random() < 0.3 && mutated[i].length > 0) {
+                        const customerId = mutated[i].pop();
+                        const targetVehicle = Math.floor(Math.random() * mutated.length);
+                        mutated[targetVehicle].push(customerId);
+                    }
+                }
+            }
+            
+            return mutated;
+        }
+
+        // 运行遗传算法
+        function runGeneticAlgorithm() {
+            if (gaRunning) return;
+            
+            console.log('开始运行遗传算法...');
+            
+            // 获取参数
+            const vehicleNum = parseInt(document.getElementById('gaVehicleNum').value);
+            populationSize = parseInt(document.getElementById('populationSize').value);
+            generations = parseInt(document.getElementById('generations').value);
+            mutationRate = parseFloat(document.getElementById('mutationRate').value);
+            maxRunTime = parseInt(document.getElementById('maxRunTime').value) * 1000; // 转换为毫秒
+            
+            console.log('参数:', { vehicleNum, populationSize, generations, mutationRate, maxRunTime });
+            
+            if (isNaN(vehicleNum) || vehicleNum < 1) {
+                alert("请输入有效的车辆数量！");
+                return;
+            }
+            
+            try {
+                // 初始化
+                gaRunning = true;
+                currentGeneration = 0;
+                bestCost = Infinity;
+                bestSolution = null;
+                startTime = Date.now();
+                
+                console.log('开始生成初始种群...');
+                
+                // 生成初始种群
+                population = [];
+                for (let i = 0; i < populationSize; i++) {
+                    let solution;
+                    
+                    // 使用简化的初始解生成方法
+                    const customerIds = customers.filter(c => c.id !== 0).map(c => c.id);
+                    solution = Array(vehicleNum).fill().map(() => []);
+                    
+                    // 简单分配，允许超出容量
+                    let vehicleIndex = 0;
+                    for (let customerId of customerIds) {
+                        solution[vehicleIndex % vehicleNum].push(customerId);
+                        vehicleIndex++;
+                    }
+                    
+                    population.push(solution);
+                }
+                
+                console.log('初始种群生成完成，种群大小:', population.length);
+                console.log('第一个解示例:', population[0]);
+                
+                // 验证初始种群
+                if (population.length === 0) {
+                    throw new Error('初始种群生成失败');
+                }
+                
+                // 计算初始最佳解
+                const initialFitness = population.map(solution => ({
+                    solution: solution,
+                    cost: calculateSolutionCost(solution),
+                    valid: isSolutionValid(solution)
+                }));
+                initialFitness.sort((a, b) => a.cost - b.cost);
+                bestCost = initialFitness[0].cost;
+                bestSolution = initialFitness[0].solution;
+                console.log('初始最佳解成本:', bestCost);
+                
+                // 更新UI
+                document.getElementById('runGA').disabled = true;
+                document.getElementById('stopGA').disabled = false;
+                document.getElementById('progressFill').style.width = '0%';
+                document.getElementById('bestCost').textContent = bestCost.toFixed(2);
+                
+                // 开始迭代
+                gaInterval = setInterval(() => {
+                    try {
+                        // 检查超时
+                        if (Date.now() - startTime > maxRunTime) {
+                            console.log('遗传算法超时，自动停止');
+                            stopGeneticAlgorithm();
+                            return;
+                        }
+                        
+                        if (currentGeneration >= generations || !gaRunning) {
+                            stopGeneticAlgorithm();
+                            return;
+                        }
+                        
+                        // 评估种群
+                        const fitness = population.map(solution => ({
+                            solution: solution,
+                            cost: calculateSolutionCost(solution),
+                            valid: isSolutionValid(solution)
+                        }));
+                        
+                        // 排序（成本越低越好）
+                        fitness.sort((a, b) => a.cost - b.cost);
+                        
+                        // 更新最佳解
+                        if (fitness[0].cost < bestCost) {
+                            bestCost = fitness[0].cost;
+                            bestSolution = fitness[0].solution;
+                            console.log('发现新的最佳解，成本:', bestCost);
+                        }
+                        
+                        // 选择精英
+                        const eliteSize = Math.max(1, Math.floor(populationSize * 0.1));
+                        const elite = fitness.slice(0, eliteSize).map(f => f.solution);
+                        
+                        // 生成新种群
+                        const newPopulation = [...elite];
+                        
+                        // 生成新个体
+                        while (newPopulation.length < populationSize) {
+                            const parent1 = fitness[Math.floor(Math.random() * fitness.length)].solution;
+                            const parent2 = fitness[Math.floor(Math.random() * fitness.length)].solution;
+                            
+                            let child = crossover(parent1, parent2);
+                            child = mutate(child);
+                            
+                            newPopulation.push(child);
+                        }
+                        
+                        population = newPopulation;
+                        currentGeneration++;
+                        
+                        // 添加调试信息
+                        if (currentGeneration % 10 === 0) {
+                            console.log(`第${currentGeneration}代完成，种群大小: ${population.length}, 最佳成本: ${bestCost.toFixed(2)}`);
+                        }
+                        
+                        // 更新UI
+                        updateGAUI();
+                        
+                    } catch (error) {
+                        console.error('遗传算法迭代错误:', error);
+                        stopGeneticAlgorithm();
+                    }
+                    
+                }, 100); // 每100ms更新一次
+                
+            } catch (error) {
+                console.error('遗传算法初始化错误:', error);
+                alert('遗传算法初始化失败: ' + error.message);
+                gaRunning = false;
+                document.getElementById('runGA').disabled = false;
+                document.getElementById('stopGA').disabled = true;
+            }
+        }
+
+        // 停止遗传算法
+        function stopGeneticAlgorithm() {
+            gaRunning = false;
+            if (gaInterval) {
+                clearInterval(gaInterval);
+                gaInterval = null;
+            }
+            
+            document.getElementById('runGA').disabled = false;
+            document.getElementById('stopGA').disabled = true;
+            
+            // 绘制最佳解
+            if (bestSolution) {
+                drawGASolution(bestSolution);
+                // 启用导入按钮
+                document.getElementById('importBtn').disabled = false;
+            }
+        }
+
+        // 重置遗传算法
+        function resetGA() {
+            stopGeneticAlgorithm();
+            currentGeneration = 0;
+            bestCost = Infinity;
+            bestSolution = null;
+            
+            document.getElementById('currentGen').textContent = '0';
+            document.getElementById('bestCost').textContent = '-';
+            document.getElementById('avgCost').textContent = '-';
+            document.getElementById('timeElapsed').textContent = '0s';
+            document.getElementById('progressFill').style.width = '0%';
+            
+            const canvas = document.getElementById('canvas-right');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            document.getElementById('cost-right').innerText = '';
+            
+            // 隐藏路径显示区域
+            document.getElementById('gaRoutesDisplay').style.display = 'none';
+            
+            // 禁用导入按钮
+            document.getElementById('importBtn').disabled = true;
+        }
+
+        // 测试遗传算法函数
+        function testGeneticAlgorithm() {
+            console.log('=== 遗传算法测试开始 ===');
+            
+            // 测试基本函数
+            console.log('1. 测试基本函数:');
+            console.log('- getCustomerById(1):', getCustomerById(1));
+            console.log('- distance函数:', distance(getCustomerById(0), getCustomerById(1)));
+            
+            // 测试解生成
+            console.log('2. 测试解生成:');
+            const testSolution = generateRandomSolution(3);
+            console.log('- 随机解:', testSolution);
+            console.log('- 解成本:', calculateSolutionCost(testSolution));
+            console.log('- 解有效性:', isSolutionValid(testSolution));
+            
+            // 测试交叉和变异
+            console.log('3. 测试遗传操作:');
+            const parent1 = generateRandomSolution(3);
+            const parent2 = generateRandomSolution(3);
+            console.log('- 父代1:', parent1);
+            console.log('- 父代2:', parent2);
+            
+            const child = crossover(parent1, parent2);
+            console.log('- 交叉后:', child);
+            
+            const mutated = mutate(child);
+            console.log('- 变异后:', mutated);
+            
+            // 测试种群生成
+            console.log('4. 测试种群生成:');
+            const testPopulation = [];
+            for (let i = 0; i < 5; i++) {
+                testPopulation.push(generateRandomSolution(3));
+            }
+            console.log('- 测试种群大小:', testPopulation.length);
+            console.log('- 种群成本范围:', testPopulation.map(s => calculateSolutionCost(s)));
+            
+            console.log('=== 遗传算法测试完成 ===');
+            
+            // 显示测试结果
+            alert(`测试完成！\n- 随机解生成: ${testSolution.length > 0 ? '成功' : '失败'}\n- 解成本计算: ${calculateSolutionCost(testSolution).toFixed(2)}\n- 种群生成: ${testPopulation.length}个解\n请查看控制台获取详细信息。`);
+        }
+
+        // 更新遗传算法UI
+        function updateGAUI() {
+            document.getElementById('currentGen').textContent = currentGeneration;
+            document.getElementById('bestCost').textContent = bestCost.toFixed(2);
+            
+            // 计算平均成本
+            const avgCost = population.reduce((sum, solution) => sum + calculateSolutionCost(solution), 0) / population.length;
+            document.getElementById('avgCost').textContent = avgCost.toFixed(2);
+            
+            // 更新进度条
+            const progress = (currentGeneration / generations) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            
+            // 更新运行时间
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timeElapsed').textContent = elapsed + 's';
+        }
+
+        // 绘制遗传算法解
+        function drawGASolution(solution) {
+            const canvas = document.getElementById('canvas-right');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 画点
+            for (let c of customers) {
+                ctx.beginPath();
+                ctx.arc(c.x/1.2, c.y/1.2, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = c.id === 0 ? "#ff6600" : "#3399ff";
+                ctx.fill();
+                ctx.strokeStyle = "#333";
+                ctx.stroke();
+                ctx.font = "12px Arial";
+                ctx.fillStyle = "#000";
+                ctx.fillText(`${c.id}`, c.x/1.2 + 10, c.y/1.2 + 4);
+            }
+
+            // 画路径
+            const colors = ["#e91e63", "#2196f3", "#4caf50", "#ff9800", "#9c27b0", "#009688", "#795548", "#607d8b", "#f44336", "#3f51b5"];
+            let totalCost = 0;
+            
+            for (let i = 0; i < solution.length; i++) {
+                const route = solution[i];
+                if (route.length === 0) continue;
+                
+                ctx.strokeStyle = colors[i % colors.length];
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                
+                // 仓库出发
+                let start = getCustomerById(0);
+                ctx.moveTo(start.x/1.2, start.y/1.2);
+                
+                for (let id of route) {
+                    let c = getCustomerById(id);
+                    ctx.lineTo(c.x/1.2, c.y/1.2);
+                }
+                
+                // 回到仓库
+                ctx.lineTo(start.x/1.2, start.y/1.2);
+                ctx.stroke();
+
+                // 计算成本
+                let cost = 0;
+                let prev = getCustomerById(0);
+                for (let id of route) {
+                    let c = getCustomerById(id);
+                    cost += distance(prev, c);
+                    prev = c;
+                }
+                cost += distance(prev, getCustomerById(0));
+                totalCost += cost;
+
+                // 标注车辆编号
+                if (route.length > 0) {
+                    let midIdx = Math.floor(route.length / 2);
+                    let midC = getCustomerById(route[midIdx]);
+                    ctx.font = "bold 14px Arial";
+                    ctx.fillStyle = colors[i % colors.length];
+                    ctx.fillText(`车辆${i+1}`, midC.x/1.2 + 15, midC.y/1.2 - 10);
+                }
+            }
+
+            // 显示成本
+            let costMsg = `遗传算法最佳解 - 总路径成本：${totalCost.toFixed(2)}`;
+            
+            // 检查是否有超出容量的车辆
+            let hasOverCapacity = false;
+            for (let route of solution) {
+                const routeDemand = route.reduce((sum, id) => sum + getCustomerById(id).demand, 0);
+                if (routeDemand > vehicleCapacity) {
+                    hasOverCapacity = true;
+                    break;
+                }
+            }
+            
+            if (hasOverCapacity) {
+                costMsg += " ⚠️（存在超出容量限制的车辆）";
+            } else {
+                costMsg += " ✅（所有车辆都在容量范围内）";
+            }
+            
+            document.getElementById('cost-right').innerText = costMsg;
+            
+            // 显示路径详情
+            displayGARoutes(solution);
+        }
+        
+        // 显示遗传算法路径详情
+        function displayGARoutes(solution) {
+            const routesDisplay = document.getElementById('gaRoutesDisplay');
+            const routesInfo = document.getElementById('gaRoutesInfo');
+            
+            if (!solution || solution.length === 0) {
+                routesDisplay.style.display = 'none';
+                return;
+            }
+            
+            let routesHtml = '';
+            let totalDemand = 0;
+            let hasOverCapacity = false;
+            
+            for (let i = 0; i < solution.length; i++) {
+                const route = solution[i];
+                if (route.length === 0) continue;
+                
+                const routeDemand = route.reduce((sum, id) => sum + getCustomerById(id).demand, 0);
+                totalDemand += routeDemand;
+                const isOverCapacity = routeDemand > vehicleCapacity;
+                if (isOverCapacity) hasOverCapacity = true;
+                
+                const bgColor = isOverCapacity ? '#ffebee' : '#e3f2fd';
+                const borderColor = isOverCapacity ? '#f44336' : '#2196f3';
+                const textColor = isOverCapacity ? '#d32f2f' : '#1976d2';
+                
+                routesHtml += `<div style="margin: 5px 0; padding: 8px; background: ${bgColor}; border-radius: 4px; border-left: 3px solid ${borderColor};">
+                    <div style="font-weight: bold; color: ${textColor}; margin-bottom: 3px;">
+                        🚚 车辆${i+1} ${isOverCapacity ? '⚠️ 超出容量' : ''}
+                    </div>
+                    <div style="color: #333; margin-bottom: 3px;"><strong>路径:</strong> ${route.join(' → ')}</div>
+                    <div style="color: #666; font-size: 11px;">
+                        需求: ${routeDemand} | 容量: ${vehicleCapacity} | 利用率: ${((routeDemand/vehicleCapacity)*100).toFixed(1)}%
+                        ${isOverCapacity ? ' | <span style="color: #f44336; font-weight: bold;">超出: ' + (routeDemand - vehicleCapacity) + '</span>' : ''}
+                    </div>
+                </div>`;
+            }
+            
+            const summaryBgColor = hasOverCapacity ? '#ffebee' : '#c8e6c9';
+            const summaryBorderColor = hasOverCapacity ? '#f44336' : '#4caf50';
+            
+            routesHtml += `<div style="margin-top: 10px; padding: 5px; background: ${summaryBgColor}; border-radius: 3px; font-weight: bold; border-left: 3px solid ${summaryBorderColor};">
+                总需求: ${totalDemand} | 总成本: ${calculateSolutionCost(solution).toFixed(2)}
+                ${hasOverCapacity ? ' | ⚠️ 存在超出容量的车辆' : ' | ✅ 所有车辆都在容量范围内'}
+            </div>`;
+            
+            routesInfo.innerHTML = routesHtml;
+            routesDisplay.style.display = 'block';
+        }
+        
+        // 将遗传算法解导入到左侧手动输入框
+        function importGASolution() {
+            if (!bestSolution) {
+                alert('没有可导入的遗传算法解！');
+                return;
+            }
+            
+            // 检查左侧车辆数量是否匹配
+            const leftVehicleNum = parseInt(document.getElementById('vehicleNum').value);
+            if (leftVehicleNum !== bestSolution.length) {
+                if (!confirm(`左侧车辆数量(${leftVehicleNum})与遗传算法解(${bestSolution.length})不匹配，是否调整左侧车辆数量？`)) {
+                    return;
+                }
+                document.getElementById('vehicleNum').value = bestSolution.length;
+                generateTable();
+            }
+            
+            // 清空现有输入并重新生成足够的方格
+            for (let i = 0; i < bestSolution.length; i++) {
+                const route = bestSolution[i];
+                
+                // 确保有足够的方格
+                while (vehicleCellCounts[i] < route.length) {
+                    vehicleCellCounts[i]++;
+                    const gridDiv = document.getElementById(`customerGrid${i}`);
+                    const newInput = document.createElement('input');
+                    newInput.type = "text";
+                    newInput.maxLength = 2;
+                    newInput.className = "customer-cell";
+                    newInput.id = `cell_${i}_${vehicleCellCounts[i]-1}`;
+                    newInput.setAttribute("oninput", `onCellInput(${i}, ${vehicleCellCounts[i]-1})`);
+                    newInput.setAttribute("onkeydown", `onCellKeyDown(event, ${i}, ${vehicleCellCounts[i]-1})`);
+                    newInput.setAttribute("autocomplete", "off");
+                    gridDiv.appendChild(newInput);
+                }
+                
+                // 填充客户编号
+                for (let j = 0; j < route.length; j++) {
+                    const cell = document.getElementById(`cell_${i}_${j}`);
+                    if (cell) {
+                        cell.value = route[j];
+                        cell.classList.remove('cell-invalid');
+                    }
+                }
+                
+                // 清空多余的方格
+                for (let j = route.length; j < vehicleCellCounts[i]; j++) {
+                    const cell = document.getElementById(`cell_${i}_${j}`);
+                    if (cell) {
+                        cell.value = '';
+                        cell.classList.remove('cell-invalid');
+                    }
+                }
+                
+                updateDemand(i);
+            }
+            
+            // 重新绘制左侧图表
+            drawCVRP();
+            
+            // 显示成功消息
+            alert('遗传算法解已成功导入到左侧手动输入框！');
+        }
+
+        // 页面加载后自动生成表格和演示
+        window.onload = function() {
+            console.log('页面加载完成，开始初始化...');
+            
+            // 检查必要的DOM元素是否存在
+            const runGAButton = document.getElementById('runGA');
+            const stopGAButton = document.getElementById('stopGA');
+            const importBtn = document.getElementById('importBtn');
+            
+            console.log('DOM元素检查:', {
+                runGAButton: !!runGAButton,
+                stopGAButton: !!stopGAButton,
+                importBtn: !!importBtn
+            });
+            
+            // 检查遗传算法函数是否正确定义
+            console.log('函数检查:', {
+                runGeneticAlgorithm: typeof runGeneticAlgorithm,
+                stopGeneticAlgorithm: typeof stopGeneticAlgorithm,
+                generateRandomSolution: typeof generateRandomSolution,
+                isSolutionValid: typeof isSolutionValid
+            });
+            
+            document.getElementById('vehicleNum').value = 3;
+            document.getElementById('gaVehicleNum').value = 3;
+            document.getElementById('maxRunTime').value = 30;
+            
+            // 确保导入按钮初始状态是禁用的
+            document.getElementById('importBtn').disabled = true;
+            
+            generateTable();
+            
+            // 默认分配（适应30个客户点）
+            let defaultData = [
+                [1,2,3,4,5,6,7,8,9,10],
+                [11,12,13,14,15,16,17,18,19,20],
+                [21,22,23,24,25,26,27,28,29,30]
+            ];
+            for (let i = 0; i < defaultData.length; i++) {
+                for (let j = 0; j < defaultData[i].length; j++) {
+                    let cell = document.getElementById(`cell_${i}_${j}`);
+                    if (cell) {
+                        cell.value = defaultData[i][j];
+                    }
+                }
+                updateDemand(i);
+            }
+            drawCVRP();
+            
+            // 设置画布缩放和拖拽功能
+            setupCanvasInteraction('left');
+            setupCanvasInteraction('right');
+            
+            console.log('页面初始化完成');
+            
+            // 自动测试遗传算法基本功能
+            setTimeout(() => {
+                console.log('开始自动测试遗传算法...');
+                try {
+                    const testSolution = generateRandomSolution(3);
+                    console.log('自动测试 - 随机解生成成功:', testSolution.length > 0);
+                    console.log('自动测试 - 解成本:', calculateSolutionCost(testSolution));
+                    
+                    if (testSolution.length > 0) {
+                        console.log('✅ 遗传算法基本功能正常');
+                    } else {
+                        console.log('❌ 遗传算法基本功能异常');
+                    }
+                } catch (error) {
+                    console.error('自动测试失败:', error);
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
+
